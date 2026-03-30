@@ -1,0 +1,194 @@
+---
+title: "prac3q10"
+author: "E Poarch"
+date: "2024-06-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In the following you can see an example of how we can load pre-trained models in our codes.
+
+```{r}
+# Load the pre-trained MobileNet model
+
+#run all code in source to load functions
+mobilenet<-model_mobilenet_v2(pretrained = TRUE)
+
+# Modify the last fully connected layer to match your classification task
+
+#in_features <- mobilenet$classifier$in_features
+mobilenet$classifier <- nn_linear(224*224*3, 2)   # Adjust the output size based on your classification task
+mobilenet
+```
+
+```{r}
+# Set the number of epochs
+num_epochs <- 3
+
+train_loss <- numeric(num_epochs)
+train_acc <- numeric(num_epochs)
+test_loss <- numeric(num_epochs)
+test_acc <- numeric(num_epochs)
+
+# Loop through the epochs
+for (epoch in 1:num_epochs) {
+  # Perform training and validation for each epoch
+  mn.fitted <- mobilenet %>%
+    setup(
+      loss = nn_cross_entropy_loss(),
+      optimizer = optim_adam,
+      metrics = list(
+        luz_metric_accuracy()
+      )
+    ) %>%
+    fit(train_dataloader, epochs = 1, valid_data = test_dataloader)
+
+  # Print the metrics for the current epoch
+  cat("Epoch ", epoch, "/", num_epochs, "\n")
+  cat("Train metrics: Loss: ", mn.fitted$records$metrics$train[[1]]$loss, " - Acc: ", mn.fitted$records$metrics$train[[1]]$acc, "\n")
+  cat("Valid metrics: Loss: ", mn.fitted$records$metrics$valid[[1]]$loss, " - Acc: ", mn.fitted$records$metrics$valid[[1]]$acc, "\n")
+  cat("\n")
+
+  # Store the loss and accuracy values
+  train_loss[epoch] <- mn.fitted$records$metrics$train[[1]]$loss
+  train_acc[epoch] <- mn.fitted$records$metrics$train[[1]]$acc
+  test_loss[epoch] <- mn.fitted$records$metrics$train[[1]]$loss
+  test_acc[epoch] <- mn.fitted$records$metrics$valid[[1]]$acc
+}
+```
+
+#Error in x$get_inherit() : attempt to apply non-function
+
+**10_** Using the provided materials in this practical, train a different network architecture. Does this perform better?
+  
+#pre-processing tensors to N x 3 x 299 x 299 for inception model (https://rdrr.io/github/mlverse/torchvision/src/R/models-inception.R)
+```{r}
+process_images <- function(shuffled_dataset) {
+
+  img_size <- 299  # Desired image size
+
+  # Initialize an empty list to store processed images
+  X <- list()
+
+  # Loop through each image path in shuffled_train_dataset
+  for (image_path in shuffled_dataset) {
+    # Read the image
+    img <- imager::load.image(image_path)
+
+    # Normalize the image
+    img_normalized <- img / 255
+
+    # Resize the image
+    img_resized <- resize(img_normalized, img_size, img_size)
+
+    # Append the processed image to the list
+    X <- c(X, list(img_resized))
+  }
+
+  return(X)
+}
+```
+
+#encoding of labels
+```{r, cache=TRUE}
+train_X <- process_images(shuffled_train_dataset)
+test_X <- process_images(shuffled_test_dataset)
+val_X <- process_images(shuffled_val_dataset)
+
+train_y <- ifelse(shuffled_train_labels == "normal", 1, 2)
+test_y <- ifelse(shuffled_test_labels == "normal", 1, 2)
+val_y <- ifelse(shuffled_val_labels == "normal", 1, 2)
+
+train_y <- as.integer(train_y)
+test_y <- as.integer(test_y)
+val_y <- as.integer(val_y)
+```
+
+#visualize after processing.
+```{r}
+# Create a list to store the ggplot objects
+plots <- list()
+
+# Iterate through the images and labels
+for (i in 1:4) {
+  if (train_y[i] == 0) {
+    label <- "Normal"
+  } else {
+    label <- "Pneumonia"
+  }
+
+  # Create a ggplot object for the image with the corresponding label
+  plot <- ggplot() +
+    theme_void() +
+    ggtitle(label) +
+    annotation_custom(
+      rasterGrob(train_X[[i]], interpolate = TRUE),
+      xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf
+    )
+
+  # Add the ggplot object to the list
+  plots[[i]] <- plot
+}
+
+# Arrange the plots in a 2x2 grid
+grid.arrange(grobs = plots, nrow = 2, ncol = 2)
+```
+
+```{r}
+train_X <- array(data = unlist(train_X), dim = c(1000, 299, 299, 3))
+test_X <- array(data = unlist(test_X), dim = c(200, 299, 299, 3))
+val_X <- array(data = unlist(val_X), dim = c(16, 299, 299, 3))
+```
+
+```{r}
+#using the pre-trained model
+inception<-model_inception_v3(pretrained = TRUE)
+
+# Modify the last fully connected layer to match your classification task
+
+#in_features <- mobilenet$classifier$in_features
+inception$classifier <- nn_linear(299*299*3, 2)   # Adjust the output size based on your classification task
+inception
+```
+
+```{r}
+# Set the number of epochs
+num_epochs <- 3
+
+train_loss <- numeric(num_epochs)
+train_acc <- numeric(num_epochs)
+test_loss <- numeric(num_epochs)
+test_acc <- numeric(num_epochs)
+
+# Loop through the epochs
+for (epoch in 1:num_epochs) {
+  # Perform training and validation for each epoch
+  in.fitted <- inception %>%
+    setup(
+      loss = nn_cross_entropy_loss(),
+      optimizer = optim_adam,
+      metrics = list(
+        luz_metric_accuracy()
+      )
+    ) %>%
+    fit(train_dataloader, epochs = 1, valid_data = test_dataloader)
+
+  # Print the metrics for the current epoch
+  cat("Epoch ", epoch, "/", num_epochs, "\n")
+  cat("Train metrics: Loss: ", in.fitted$records$metrics$train[[1]]$loss, " - Acc: ", in.fitted$records$metrics$train[[1]]$acc, "\n")
+  cat("Valid metrics: Loss: ", in.fitted$records$metrics$valid[[1]]$loss, " - Acc: ", in.fitted$records$metrics$valid[[1]]$acc, "\n")
+  cat("\n")
+
+  # Store the loss and accuracy values
+  train_loss[epoch] <- in.fitted$records$metrics$train[[1]]$loss
+  train_acc[epoch] <- in.fitted$records$metrics$train[[1]]$acc
+  test_loss[epoch] <- in.fitted$records$metrics$train[[1]]$loss
+  test_acc[epoch] <- in.fitted$records$metrics$valid[[1]]$acc
+}
+```
+
+#Error in x$get_inherit() : attempt to apply non-function
+
