@@ -1,7 +1,7 @@
-# Applied Research in Health Data Science Practicals
+# Applied Research in Health Data Science (ARHDS) Practicals
 
 
-These are the practicals/labs from the CSCI6410 course with Dr. Finlay Maguire
+These are the practical assignments from the CSCI6410/ARHDS course with Dr. Finlay Maguire
 
 
 Each practical contains an analysis using different methods or data types including:
